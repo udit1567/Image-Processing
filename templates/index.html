@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCA Image Compressor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-6">
+
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">PCA Image Compressor</h1>
+
+    <!-- Upload & Controls -->
+    <div class="bg-white shadow-lg rounded-xl p-6 w-full max-w-4xl">
+        <form id="uploadForm" class="flex flex-col md:flex-row md:items-end gap-4">
+            <div class="flex-1">
+                <label class="block text-gray-700 font-medium mb-1">Select Image</label>
+                <input type="file" id="fileInput" name="file" accept="image/*" required
+                       class="block w-full text-sm text-gray-600 border border-gray-300 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400">
+            </div>
+
+            <div class="flex-1">
+                <label class="block text-gray-700 font-medium mb-1">
+                    Variance Ratio: <span id="varianceValue" class="text-blue-600 font-bold">0.95</span>
+                </label>
+                <input type="range" id="varianceSlider" name="variance" min="0.1" max="1" step="0.01" value="0.95"
+                       class="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <div>
+                <button type="submit" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200 w-full">
+                    Compress
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Preview Section -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8 w-full max-w-5xl">
+        <div class="bg-white p-4 shadow rounded-xl text-center">
+            <h3 class="text-lg font-semibold mb-2 text-gray-700">Original Image</h3>
+            <img id="originalImg" alt="Original preview" class="w-full object-contain rounded-lg border border-gray-300 mb-2">
+            <div id="originalInfo" class="text-sm text-gray-600"></div>
+        </div>
+        <div class="bg-white p-4 shadow rounded-xl text-center">
+            <h3 class="text-lg font-semibold mb-2 text-gray-700">Compressed Image</h3>
+            <img id="compressedImg" alt="Compressed preview" class="w-full object-contain rounded-lg border border-gray-300 mb-2">
+            <div id="compressedInfo" class="text-sm text-gray-600"></div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div id="stats" class="hidden mt-6 bg-white shadow-lg rounded-xl p-6 w-full max-w-4xl">
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">Compression Stats</h3>
+        <pre class="bg-gray-100 p-4 rounded-lg text-sm overflow-auto"></pre>
+    </div>
+
+<script>
+document.getElementById("varianceSlider").addEventListener("input", function() {
+    document.getElementById("varianceValue").textContent = this.value;
+});
+
+document.getElementById("fileInput").addEventListener("change", function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            document.getElementById("originalImg").src = event.target.result;
+            document.getElementById("originalInfo").textContent = `Size: ${(file.size/(1024*1024)).toFixed(2)} MB`;
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+document.getElementById("uploadForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const fileInput = document.getElementById("fileInput").files[0];
+    const variance = document.getElementById("varianceSlider").value;
+
+    if (!fileInput) {
+        alert("Please select a file first.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", fileInput);
+    formData.append("variance", variance);
+
+    const response = await fetch("/compress-image/", {
+        method: "POST",
+        body: formData
+    });
+
+    if (response.ok) {
+        const data = await response.json();
+
+        // Compressed image
+        document.getElementById("compressedImg").src = "data:image/jpeg;base64," + data.compressed_image_base64;
+        document.getElementById("compressedInfo").textContent =
+            `Size: ${(data.compressed_size_bytes/(1024*1024)).toFixed(2)} MB | Reduction: ${data.reduction_percent}%`;
+
+        // Stats
+        const statsDiv = document.getElementById("stats");
+        statsDiv.classList.remove("hidden");
+        statsDiv.querySelector("pre").textContent = JSON.stringify(data.stats, null, 2);
+    } else {
+        alert("Error compressing image.");
+    }
+});
+</script>
+
+</body>
+</html>
