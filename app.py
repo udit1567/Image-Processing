@@ -10,7 +10,7 @@ from img_compress import ImagePCACompressor,np
 
 app = FastAPI()
 
-
+#now Solved
 
 
 
